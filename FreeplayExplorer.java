@@ -1,3 +1,5 @@
+import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -53,6 +55,7 @@ class FreeplayExplorer {
         final int SEED = Integer.parseInt(scan.nextLine());
         SeededRandom random = new SeededRandom(ROUND + SEED);
         ShuffleSeeded(freeplayGroups, ROUND + SEED);
+        CleanJSON(freeplayGroups, bloonRBE);
         float budget = (float) (CalculateBudget(ROUND) * (1.5 - random.getNext()));
         for (JSONObject object : freeplayGroups) {
             boolean inBounds = false;
@@ -141,5 +144,39 @@ class FreeplayExplorer {
         if (spacing > 0.1) return (float) (totalRBE * 1.1);
         if (spacing > 0.08) return (float) (totalRBE * 1.4);
         return (float) (totalRBE * 1.8);
+    }
+
+    public static void CleanJSON(List<JSONObject> freeplayGroups, HashMap<String, Integer> bloonRBE) {
+        JSONArray cleanedJSON = new JSONArray();
+        for (JSONObject freeplayGroup : freeplayGroups) {
+            freeplayGroup.remove("bloonEmissions_"); //its all null
+            freeplayGroup.remove("bloonEmissions"); // takes a lot of space with a lot of duplicate information
+            // lists out each emission seperately even though they are all the same bloon and evenly spaced
+            freeplayGroup.remove("checkedImplementationType"); //all null
+            freeplayGroup.remove("ImplementationType"); //why is this one capitalized
+            freeplayGroup.remove("implementationType"); //why is this one capitalized
+            freeplayGroup.remove("childDependants"); //all null
+            freeplayGroup.remove("_name"); // copy of "name"
+            freeplayGroup.remove("WasCollected"); // something something but its always false
+            freeplayGroup.getJSONObject("group").remove("start"); // always 0
+            freeplayGroup.getJSONObject("group").remove("_name"); // copy of "name"
+            freeplayGroup.getJSONObject("group").remove("ImplementationType");
+            freeplayGroup.getJSONObject("group").remove("implementationType");
+            freeplayGroup.getJSONObject("group").remove("childDependants");
+            freeplayGroup.getJSONObject("group").remove("checkedImplementationType");
+            freeplayGroup.getJSONObject("group").remove("WasCollected");
+            if (freeplayGroup.getInt("score") == 0) {
+                freeplayGroup.put("score", CalculateScore(freeplayGroup, bloonRBE));
+            }
+            System.out.println(freeplayGroup);
+            cleanedJSON.put(freeplayGroup);
+        }
+        try {
+            FileWriter writer = new FileWriter("cleanedFreeplayGroups.json");
+            writer.write(cleanedJSON.toString());
+            writer.close();
+        } catch (Exception e) {
+            System.out.printf("failed to write to cleanFreeplayGroups.json at the cwd, check your permissions %s", e);
+        }
     }
 }
