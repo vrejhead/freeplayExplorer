@@ -12,6 +12,8 @@ depends on the [Java JSON Library](https://github.com/stleary/JSON-java), in my 
 - ``cleanedFreeplayGroups.json``: ``FreeplayGroups.json`` but with the useless fields removed(most importantly each emission is removed, since they are always the same bloon and evenly spaced)(if they're not evenly spaced, the game doesnt care), you can generate the cleaned JSON by running the CleanJSON function in the java file
 - ``bloonData.json``: data for the bloons such as cash, rbe, and health
 
+tldr: basically there is no group cap but since the score of spawns is larger than expected
+
 ## ok but how does freeplay work, really oversimplified
 ### if you actually care, just look at the code
 - set the ``seed`` to ``round + initialSeed``(the initialSeed is provided in the 1st argument above)
