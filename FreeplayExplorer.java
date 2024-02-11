@@ -10,6 +10,7 @@ import org.json.*;
 class FreeplayExplorer {
     // i gregging HATE this oop stuff but 
     public static void main(String[] args) {
+        CleanJSON();
         BloonCalculator bloonCalculator = new BloonCalculator();
         List<JSONObject> freeplayGroups = new ArrayList<>();
         try {
@@ -185,9 +186,33 @@ class FreeplayExplorer {
     /*
     removes the useless fields from the freeplayGroups json
      */
-    public static void CleanJSON(List<JSONObject> freeplayGroups, BloonCalculator calc) {
+    public static void CleanJSON() {
+        List<JSONObject> freeplayGroups = new ArrayList<>();
+        try {
+            String text = Files.readString(Path.of("freeplayGroups.json"));
+            JSONArray tempGroup = new JSONArray(text);
+            for (int i = 0; i < tempGroup.length(); i++) {
+                freeplayGroups.add(tempGroup.getJSONObject(i));
+            }
+
+        } catch (Exception e) {
+            System.out.printf("failed to read json file with exception %s", e);
+            return;
+        }
         JSONArray cleanedJSON = new JSONArray();
+        BloonCalculator calc = new BloonCalculator();
         for (JSONObject freeplayGroup : freeplayGroups) {
+            /*
+            there are some emissions which [group][end] =/= lastEmission.time
+            the game respects lastEmission.time so correct it
+            example: element 188 in the freeplayGroups.json
+            this seems to only happen with single spawn emissions
+             */
+            JSONArray bloonEmissions = freeplayGroup.getJSONArray("bloonEmissions");
+            JSONObject lastEmission = bloonEmissions.getJSONObject(bloonEmissions.length() - 1);
+            freeplayGroup.getJSONObject("group").put("end", lastEmission.getInt("time"));
+
+
             freeplayGroup.remove("bloonEmissions_"); //its all null
             freeplayGroup.remove("bloonEmissions"); // takes a lot of space with a lot of duplicate information
             // lists out each emission seperately even though they are all the same bloon and evenly spaced
