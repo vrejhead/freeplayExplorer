@@ -30,13 +30,21 @@ class FreeplayExplorer {
         int ROUND = START;
         long totalRBE = 0;
         double totalCash = 0;
+        int totalTime = 0;
 
         while (ROUND <= END) {
             SeededRandom random = new SeededRandom(ROUND + SEED);
-            float budget = (float) (CalculateBudget(ROUND) * (1.5 - random.getNext()));
+            float budget;
+            if (ROUND > 1) {
+                budget = (float) (CalculateBudget(ROUND) * (1.5 - random.getNext()));
+            } else {
+                budget = CalculateBudget(ROUND);
+            }
+
             float OGBudget = budget;
             long roundRBE = 0;
             double roundCash = 0;
+            int roundTime = 0;
             List<Integer> testGroups = IntStream.range(0, 529).boxed().collect(Collectors.toList());
             ShuffleSeeded(testGroups, ROUND + SEED);
             System.out.println("+------------------------------------------------------+");
@@ -63,6 +71,7 @@ class FreeplayExplorer {
                 int count = object.getJSONObject("group").getInt("count");
                 roundRBE += (long) bloonCalculator.getRBE(bloon, ROUND) * count;
                 roundCash += bloonCalculator.getCash(bloon, ROUND) * count;
+                roundTime += object.getJSONObject("group").getInt("end");
                 System.out.println(formatEmissions(object));
                 budget -= score;
             }
@@ -70,15 +79,18 @@ class FreeplayExplorer {
             System.out.printf("| %52s |\n", String.format("Score budget: %,.2f/%,.2f", OGBudget - budget, OGBudget));
             System.out.printf("| %52s |\n", String.format("Round RBE: %,d", roundRBE));
             System.out.printf("| %52s |\n", String.format("Round Cash: %,.2f", roundCash));
+            System.out.printf("| %52s |\n", String.format("Round Length: %,d", roundTime));
             System.out.printf("| %52s |\n", String.format("Health Multiplier: %s", BloonCalculator.getHealthMultiplier(ROUND)));
             System.out.printf("| %52s |\n", String.format("Speed Multiplier: %s", BloonCalculator.getSpeedMultiplier(ROUND)));
             ROUND++;
             totalCash += roundCash;
             totalRBE += roundRBE;
+            totalTime += roundTime;
         }
         System.out.println("+------------------------TOTAL-------------------------+");
         System.out.printf("| %52s |\n", String.format("Total RBE: %,d", totalRBE));
         System.out.printf("| %52s |\n", String.format("Total Cash: %,.2f", totalCash));
+        System.out.printf("| %52s |\n", String.format("Total Time: %,d", totalTime));
         System.out.println("+------------------------------------------------------+");
     }
 
@@ -228,7 +240,7 @@ class FreeplayExplorer {
         }
 
         public double getCash(String bloon, int round) {
-            return getCash(bloon.replace("Fortified", "").replace("Camo", ""), round > 80) * getCashMultiplier(round);
+            return getCash(bloon.replace("Fortified", "").replace("Camo", "").replace("Regrow", ""), round > 80) * getCashMultiplier(round);
         }
 
         public int getRBE(String bloon, double healthMultiplier, boolean isSuper, boolean isFortified) {
@@ -250,7 +262,7 @@ class FreeplayExplorer {
 
 
         public int getRBE(String bloon, int round) {
-            return getRBE(bloon.replace("Fortified", "").replace("Camo", ""), getHealthMultiplier(round), round > 80, bloon.contains("Fortified"));
+            return getRBE(bloon.replace("Fortified", "").replace("Camo", "").replace("Regrow", ""), getHealthMultiplier(round), round > 80, bloon.contains("Fortified"));
         }
 
         public int getRBE(String bloon) {
