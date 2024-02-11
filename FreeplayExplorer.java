@@ -10,7 +10,6 @@ import org.json.*;
 class FreeplayExplorer {
     // i gregging HATE this oop stuff but 
     public static void main(String[] args) {
-        CleanJSON();
         BloonCalculator bloonCalculator = new BloonCalculator();
         List<JSONObject> freeplayGroups = new ArrayList<>();
         try {
