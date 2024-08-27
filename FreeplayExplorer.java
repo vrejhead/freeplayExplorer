@@ -309,7 +309,7 @@ class FreeplayExplorer {
             if (round <= 80) return 1;
             if (round <= 100) return 1 + (round - 80) * 0.02;
             if (round <= 150) return 1.6 + (round - 101) * 0.02;
-            if (round <= 200) return 3 + (round - 1151) * 0.02;
+            if (round <= 200) return 3 + (round - 151) * 0.02;
             if (round <= 250) return 4.5 + (round - 201) * 0.02;
             return 6 + (round - 252) * 0.02;
         }
