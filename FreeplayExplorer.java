@@ -13,7 +13,7 @@ class FreeplayExplorer {
         BloonCalculator bloonCalculator = new BloonCalculator();
         List<JSONObject> freeplayGroups = new ArrayList<>();
         try {
-            String text = Files.readString(Path.of("cleanedFreeplayGroups.json"));
+            String text = Files.readString(Path.of("FreeplayGroups.json"));
             JSONArray tempGroup = new JSONArray(text);
             for (int i = 0; i < tempGroup.length(); i++) {
                 freeplayGroups.add(tempGroup.getJSONObject(i));
@@ -23,32 +23,33 @@ class FreeplayExplorer {
             System.out.printf("failed to read json file with exception %s", e);
             return;
         }
-        List<Integer> arguments = parseArguments(List.of(args));
-        final int SEED = arguments.get(0);
-        final int START = arguments.get(1);
-        final int END = arguments.get(2);
-        int ROUND = START;
+//        int[] arguments = parseArguments(args);
+        int[] arguments = { 98015596, 58, 58 };
+        int seed = arguments[0];
+        int start = arguments[1];
+        int end = arguments[2];
         long totalRBE = 0;
         double totalCash = 0;
         int totalTime = 0;
 
-        while (ROUND <= END) {
-            SeededRandom random = new SeededRandom(ROUND + SEED);
+        for (int round = start; round <= end; round++) {
+            SeededRandom random = new SeededRandom(round + seed);
+            List<Integer> testGroups = IntStream.range(0, 529).boxed().collect(Collectors.toList());
+            shuffleTwo(testGroups, random);
             float budget;
-            if (ROUND > 1) {
-                budget = (float) (CalculateBudget(ROUND) * (1.5 - random.getNext()));
+            if (round > 1) {
+                budget = (float) (calculateBudget(round) * (1.5 - random.getNext()));
             } else {
-                budget = CalculateBudget(ROUND);
+                budget = calculateBudget(round);
             }
+            System.out.println(testGroups);
 
             float OGBudget = budget;
             long roundRBE = 0;
             double roundCash = 0;
             int roundTime = 0;
-            List<Integer> testGroups = IntStream.range(0, 529).boxed().collect(Collectors.toList());
-            ShuffleSeeded(testGroups, ROUND + SEED);
             System.out.println("+------------------------------------------------------+");
-            System.out.printf("| ROUND %46s |\n", ROUND);
+            System.out.printf("| ROUND %46s |\n", round);
             System.out.println("+------------------+-----------------+-----------------+");
             System.out.println("|            Bloon |           Count |          Length |");
             System.out.println("+------------------+-----------------+-----------------+");
@@ -57,22 +58,26 @@ class FreeplayExplorer {
                 boolean inBounds = false;
                 JSONArray bounds = object.getJSONArray("bounds");
                 for (int i = 0; i < bounds.length(); i++) {
-                    if ((bounds.getJSONObject(i).getInt("lowerBounds") <= ROUND) && (ROUND <= bounds.getJSONObject(i).getInt("upperBounds"))) {
+                    if ((bounds.getJSONObject(i).getInt("lowerBounds") <= round) && (round <= bounds.getJSONObject(i).getInt("upperBounds"))) {
                         inBounds = true;
                         break;
                     }
                 }
                 if (!inBounds) {
+//                    System.out.println("skipped emission " + index + " bounds");
                     continue;
                 }
-                float score = object.getFloat("score") == 0 ? CalculateScore(object, bloonCalculator) : object.getFloat("score");
-                if (score > budget) continue;
+                float score = object.getFloat("score") == 0 ? calculateScore(object, bloonCalculator, round) : object.getFloat("score");
+                if (score > budget) {
+//                    System.out.println("skipped emission " + index + " score " + score);
+                    continue;
+                }
                 String bloon = object.getJSONObject("group").getString("bloon");
                 int count = object.getJSONObject("group").getInt("count");
-                roundRBE += (long) bloonCalculator.getRBE(bloon, ROUND) * count;
-                roundCash += bloonCalculator.getCash(bloon, ROUND) * count;
+                roundRBE += (long) bloonCalculator.getRBE(bloon, round) * count;
+                roundCash += bloonCalculator.getCash(bloon, round) * count;
                 roundTime += object.getJSONObject("group").getInt("end");
-                System.out.println(formatEmissions(object));
+                System.out.println(formatEmissions(object) + " " + score + " " + index);
                 budget -= score;
             }
             System.out.println("+------------------------------------------------------+");
@@ -80,9 +85,8 @@ class FreeplayExplorer {
             System.out.printf("| %52s |\n", String.format("Round RBE: %,d", roundRBE));
             System.out.printf("| %52s |\n", String.format("Round Cash: %,.2f", roundCash));
             System.out.printf("| %52s |\n", String.format("Round Length: %,d", roundTime));
-            System.out.printf("| %52s |\n", String.format("Health Multiplier: %s", BloonCalculator.getHealthMultiplier(ROUND)));
-            System.out.printf("| %52s |\n", String.format("Speed Multiplier: %s", BloonCalculator.getSpeedMultiplier(ROUND)));
-            ROUND++;
+            System.out.printf("| %52s |\n", String.format("Health Multiplier: %s", BloonCalculator.getHealthMultiplier(round)));
+            System.out.printf("| %52s |\n", String.format("Speed Multiplier: %s", BloonCalculator.getSpeedMultiplier(round)));
             totalCash += roundCash;
             totalRBE += roundRBE;
             totalTime += roundTime;
@@ -95,30 +99,41 @@ class FreeplayExplorer {
     }
 
     static class SeededRandom {
-        int initialSeed;
-        long currentSeed;
+        long seed;
 
         public SeededRandom(int seed) {
-            this.initialSeed = seed;
-            this.currentSeed = seed;
+            this.seed = seed;
+        }
+
+        public void step() {
+            seed = seed * 0x41a7 % 0x7fffffff;
         }
 
         public float getNext() {
-            this.currentSeed = (this.currentSeed * 0x41a7) % 0x7FFFFFFF;
-            return (float) (this.currentSeed * 4.656613e-10);
+            step();
+            return (float) (this.seed * 4.656613e-10);
         }
 
         public double getNextDouble() {
-            this.currentSeed = (this.currentSeed * 0x41a7) % 0x7FFFFFFF;
-            return this.currentSeed / 2147483646.0;
+            step();
+            return this.seed / 2147483646.0;
+        }
+
+        public int getNext(int min, int max) {
+            if (min == max) return min;
+            int diff = min - max;
+            step();
+            int shift = Math.floorMod(seed, diff);
+            if (shift == 0) shift += diff;
+            return max + shift;
         }
     }
 
-    public static List<Integer> parseArguments(List<String> args) {
-        if (args.size() != 3) {
+    public static int[] parseArguments(String[] args) {
+        if (args.length != 3) {
             throw new IllegalArgumentException("arguments must be in the form of {seed}, {startRound}, {endRound}, both inclusive");
         }
-        return args.stream().map(Integer::parseInt).collect(Collectors.toList());
+        return Arrays.stream(args).mapToInt(Integer::parseInt).toArray();
     }
 
     public static String formatEmissions(JSONObject emission) {
@@ -130,7 +145,7 @@ class FreeplayExplorer {
         );
     }
 
-    public static <T> void ShuffleSeeded(List<T> lst, int seed) {
+    public static <T> void shuffleSeeded(List<T> lst, int seed) {
         SeededRandom random = new SeededRandom(seed);
         int pointer = lst.size() - 1;
         int listLen = pointer;
@@ -147,7 +162,14 @@ class FreeplayExplorer {
         }
     }
 
-    public static float CalculateBudget(int round) {
+    public static <T> void shuffleTwo(List<T> list, SeededRandom rng) {
+        for (int i = 0; i < list.size(); i++) {
+            int index = rng.getNext(i, list.size());
+            Collections.swap(list, i, index);
+        }
+    }
+
+    public static float calculateBudget(int round) {
         if (round > 100) {
             return round * 4000 - 225000;
         }
@@ -159,7 +181,7 @@ class FreeplayExplorer {
         return (float) ((1 + round * 0.01) * (round * -3 + 400) * ((budget * 5e-11 + helper + 20) / 160) * 0.6);
     }
 
-    public static float CalculateScore(JSONObject bloonModel, BloonCalculator calc) {
+    public static float calculateScore(JSONObject bloonModel, BloonCalculator calc, int round) {
         String bloon = bloonModel.getJSONObject("group").getString("bloon");
         int count = bloonModel.getJSONObject("group").getInt("count");
         double multiplier = 1;
@@ -171,7 +193,7 @@ class FreeplayExplorer {
             multiplier += 0.1;
             bloon = bloon.replace("Regrow", "");
         }
-        int bloonRBE = calc.getRBE(bloon);
+        int bloonRBE = calc.getRBE(bloon, round);
         if (count == 1) return (float) (bloonRBE * multiplier);
         double spacing = ((double) bloonModel.getJSONObject("group").getInt("end")) / (60 * count);
         double totalRBE = count * bloonRBE * multiplier;
@@ -229,7 +251,8 @@ class FreeplayExplorer {
             freeplayGroup.getJSONObject("group").remove("checkedImplementationType");
             freeplayGroup.getJSONObject("group").remove("WasCollected");
             if (freeplayGroup.getInt("score") == 0) {
-                freeplayGroup.put("score", CalculateScore(freeplayGroup, calc));
+                // todo fix this
+//                freeplayGroup.put("score", calculateScore(freeplayGroup, calc));
             }
             cleanedJSON.put(freeplayGroup);
         }
